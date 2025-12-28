@@ -125,7 +125,7 @@ async def check_conditions(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     # Ждём 3 секунды (даём время на синхронизацию данных)
-    await asyncio.sleep(3)
+    await asyncio.sleep(2)
     
     # Теперь реальная проверка
     is_subscribed = await _check_channel_subscription(bot, user_id)
