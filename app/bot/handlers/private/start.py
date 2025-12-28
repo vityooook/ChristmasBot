@@ -97,6 +97,8 @@ async def cmd_start(message: Message):
 @router.callback_query(GiveawayCallback.filter(F.act == "check"))
 async def check_conditions(callback: CallbackQuery, bot: Bot):
     """Проверка условий и отправка подарка."""
+    import asyncio
+    
     user_id = callback.from_user.id
     
     # Проверяем паузу
@@ -118,7 +120,14 @@ async def check_conditions(callback: CallbackQuery, bot: Bot):
         await callback.answer(tr("start.pending_gift"), show_alert=True)
         return
 
-    # Проверяем условия
+    # Показываем "загрузку" — Отец Кайфа проверяет...
+    await _safe_edit_message(callback, tr("start.checking"))
+    await callback.answer()
+    
+    # Ждём 3 секунды (даём время на синхронизацию данных)
+    await asyncio.sleep(3)
+    
+    # Теперь реальная проверка
     is_subscribed = await _check_channel_subscription(bot, user_id)
     await update_user_subscription(user_id, is_subscribed)
     
@@ -139,7 +148,6 @@ async def check_conditions(callback: CallbackQuery, bot: Bot):
     )
     
     await _safe_edit_message(callback, text, keyboard)
-    await callback.answer()
 
 
 async def _send_gift(callback: CallbackQuery, bot: Bot, user_id: int) -> None:
