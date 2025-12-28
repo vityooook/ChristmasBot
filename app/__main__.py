@@ -26,15 +26,60 @@ def setup_logging(level: str = "INFO") -> None:
     )
 
 
+async def init_database() -> None:
+    """
+    Инициализация БД при старте.
+    
+    БЕЗОПАСНО для перезапуска:
+    - create_all() создаёт таблицы ТОЛЬКО если их нет (данные НЕ удаляются)
+    - ON CONFLICT DO UPDATE — если админ уже есть, просто обновит флаг
+    """
+    from sqlalchemy import text, inspect
+    from app.database.engine import engine, Base, async_session_maker
+    from app.database.models.user import User  # noqa: F401 — нужен для metadata
+    
+    # Проверяем существуют ли таблицы
+    async with engine.begin() as conn:
+        def check_tables(sync_conn):
+            inspector = inspect(sync_conn)
+            return "user" in inspector.get_table_names()
+        
+        tables_exist = await conn.run_sync(check_tables)
+        
+        if tables_exist:
+            logger.info("БД: таблицы уже существуют ✓")
+        else:
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("БД: таблицы созданы")
+    
+    # Убеждаемся что админы имеют флаг is_admin=true
+    admin_ids = settings.get_admin_ids()
+    if admin_ids:
+        async with async_session_maker() as session:
+            for admin_id in admin_ids:
+                # UPSERT: создать или обновить
+                await session.execute(
+                    text("""
+                        INSERT INTO "user" (id, is_admin, created_at, updated_at)
+                        VALUES (:id, true, timezone('utc', now()), timezone('utc', now()))
+                        ON CONFLICT (id) DO UPDATE SET is_admin = true
+                    """),
+                    {"id": admin_id}
+                )
+            await session.commit()
+            logger.debug(f"Админы проверены: {admin_ids}")
+
+
 async def run_polling() -> None:
+    # Инициализируем БД
+    await init_database()
+    
     dp = build_dp()
     bot = build_bot(settings.bot_token)
     
     logger.info("🎄 Бот запускается...")
     
-    # Удаляем webhook на случай если был (без лишних логов)
     await bot.delete_webhook(drop_pending_updates=True)
-    
     await dp.start_polling(bot)
 
 

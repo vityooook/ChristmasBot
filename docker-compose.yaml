@@ -1,14 +1,10 @@
-version: "3.9"
-
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: christmas_bot
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,18 +12,21 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
 
   bot:
     build: .
     env_file:
       - .env
     environment:
+      # Переопределяем DATABASE_URL для Docker-сети
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/christmas_bot
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - ./pics:/app/pics
+      # Картинки монтируем отдельно чтобы можно было менять без пересборки
+      - ./pics:/app/pics:ro
     restart: unless-stopped
 
 volumes:

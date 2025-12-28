@@ -25,7 +25,7 @@ router = Router(name="private_start")
 router.message.filter(F.chat.type == ChatType.PRIVATE)
 
 
-WELCOME_PIC_PATH = "pics/welcome.png"
+WELCOME_PIC_PATH = "pics/welcome.jpg"
 
 
 def _get_channel_url() -> str:
